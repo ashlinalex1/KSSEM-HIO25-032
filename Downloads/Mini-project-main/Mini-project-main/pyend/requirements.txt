@@ -1,0 +1,9 @@
+Flask
+flask-cors
+google
+requests
+beautifulsoup4
+yfinance
+pandas
+python-dotenv
+ollama
