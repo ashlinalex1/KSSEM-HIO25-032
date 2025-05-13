@@ -25,6 +25,40 @@ const ChatbotInterface: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // const formatBotMessage = (message: string) => {
+  //   return message
+  //     .replace(/---/g, '<hr/>')
+  //     .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')           // Bold **text**
+  //     .replace(/__(.*?)__/g, '<b>$1</b>')               // Bold __text__
+  //     .replace(/### (.*?)(?=\n|$)/g, '<h4>$1</h4>')     // h4 headings
+  //     .replace(/(?:\r?\n){2,}/g, '<br/><br/>')          // Paragraph spacing
+  //     .replace(/\n/g, '<br/>')                          // Line breaks
+  //     .replace(/^[*-] (.*)/gm, '• $1')                  // Bullet points
+  //     .replace(/^(\d+)\.\s(.*)/gm, '$1. $2');           // Numbered list
+  // };
+  const formatBotMessage = (message: string) => {
+    return message
+      .replace(/---/g, '<hr/>')                                // Add horizontal rule for section separation
+      .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')                  // Bold **text**
+      .replace(/__(.*?)__/g, '<b>$1</b>')                      // Bold __text__
+      .replace(/\* (.*?)(?=\n|$)/g, '<ul><li>$1</li></ul>')     // Bullet points with * text
+      .replace(/^[*-] (.*)/gm, '<li>$1</li>')                  // Bullet point list
+      .replace(/\n/g, '<br/>')                                  // Newline to <br>
+      .replace(/\n{2,}/g, '<br/><br/>')                         // Two or more newlines become paragraph spacing
+      .replace(/([A-Z][a-z]+ [A-Z][a-z]+)(?=\s*[\n\r])/g, '<h4>$1</h4>')  // Add <h4> tags for heading-like text (e.g., job titles, names)
+      .replace(/(Bachelor of Science|Sales Associate|Brand Ambassador)/g, '<b>$1</b>') // Bold specific titles for emphasis
+      .replace(/(May \d{4})/g, '<i>$1</i>')                    // Italicize specific date formats
+      .replace(/(increased sales|improved store appearance|Employee of the Month)/g, '<span style="color: green;">$1</span>') // Highlight key achievements
+      // // Increase font size for key points like "Overall Impression"
+      // .replace(/(<b>Overall Impression<\/b>)/g, '<h3 style="font-size: 1.5rem; font-weight: bold;">$1</h3>')
+      // .replace(/(<b>Formatting Suggestions<\/b>)/g, '<h3 style="font-size: 1.5rem; font-weight: bold;">$1</h3>')
+      // .replace(/(<b>Content and Formatting Suggestions<\/b>)/g, '<h3 style="font-size: 1.5rem; font-weight: bold;">$1</h3>')
+      // .replace(/(<b>Action Verbs<\/b>)/g, '<h3 style="font-size: 1.5rem; font-weight: bold;">$1</h3>')
+      // .replace(/(<b>Quantifiable Results<\/b>)/g, '<h3 style="font-size: 1.5rem; font-weight: bold;">$1</h3>')
+      // .replace(/(<b>Revised Resume:<\/b>)/g, '<h3 style="font-size: 1.5rem; font-weight: bold;">$1</h3>');
+  };
+  
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
@@ -48,7 +82,7 @@ const ChatbotInterface: React.FC = () => {
       }
 
       const data = await response.json();
-      addMessage(data.reply || 'No response from bot.', false);
+      addMessage(formatBotMessage(data.reply) || 'No response from bot.', false);
     } catch (error) {
       addMessage('Error communicating with server.', false);
     } finally {
@@ -63,7 +97,6 @@ const ChatbotInterface: React.FC = () => {
     }
   };
 
-  // File upload handler
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -71,20 +104,25 @@ const ChatbotInterface: React.FC = () => {
     const formData = new FormData();
     formData.append('file', file);
 
+    setIsLoading(true);
     try {
       const response = await fetch('http://localhost:5000/api/upload', {
         method: 'POST',
         body: formData,
       });
 
+      const result = await response.json();
+
       if (response.ok) {
-        addMessage(`File "${file.name}" uploaded successfully.`, false);
+        addMessage(`📄 File "${file.name}" uploaded and analyzed.`, false);
+        addMessage(formatBotMessage(result.analysis), false);
       } else {
-        addMessage('File upload failed.', false);
+        addMessage(result.error || '❌ File upload failed.', false);
       }
     } catch (error) {
-      addMessage('An error occurred during file upload.', false);
+      addMessage('❌ An error occurred during file upload.', false);
     } finally {
+      setIsLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -107,7 +145,7 @@ const ChatbotInterface: React.FC = () => {
                   <line x1="12" y1="16" x2="12" y2="16"></line>
                 </svg>
                 <h3 className="mt-4 text-lg font-medium">How can I help you today?</h3>
-                <p className="mt-1 text-sm">Ask me anything about business management or upload a file for analysis.</p>
+                <p className="mt-1 text-sm">Ask me anything about resumes or upload your resume for analysis.</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -123,7 +161,14 @@ const ChatbotInterface: React.FC = () => {
                           : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                       }`}
                     >
-                      {msg.text}
+                      {msg.isUser ? (
+                        msg.text
+                      ) : (
+                        <div
+                          className="prose prose-sm dark:prose-invert"
+                          dangerouslySetInnerHTML={{ __html: msg.text }}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -144,7 +189,7 @@ const ChatbotInterface: React.FC = () => {
           </div>
         </main>
       </div>
-      <footer className="border-t border-gray-200 dark:border-gray-700 p-4 ">
+      <footer className="border-t border-gray-200 dark:border-gray-700 p-4">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <input
             type="text"
@@ -161,12 +206,13 @@ const ChatbotInterface: React.FC = () => {
             className="rounded-md bg-blue-600 px-4 py-3 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
           </button>
           <input
             type="file"
+            accept=".pdf,.docx"
             ref={fileInputRef}
             onChange={handleFileUpload}
             className="hidden"
