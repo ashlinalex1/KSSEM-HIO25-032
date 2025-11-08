@@ -1,0 +1,2 @@
+User: hi
+Assistant: Hello! How can I assist you today? Are you looking for help with creating a resume or need some general career advice? I'm here to provide guidance and support to help you achieve your professional goals. What's on your mind?
